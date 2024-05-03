@@ -2,22 +2,22 @@ package br.com.ganog.projectbucket4j.configuration;
 
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.BucketConfiguration;
-import io.github.bucket4j.distributed.ExpirationAfterWriteStrategy;
-import io.github.bucket4j.distributed.proxy.ClientSideConfig;
-import io.github.bucket4j.distributed.proxy.ExecutionStrategy;
 import io.github.bucket4j.distributed.proxy.ProxyManager;
-import io.github.bucket4j.redis.lettuce.cas.LettuceBasedProxyManager;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.api.StatefulRedisConnection;
-import io.lettuce.core.codec.ByteArrayCodec;
-import io.lettuce.core.codec.RedisCodec;
-import io.lettuce.core.codec.StringCodec;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.time.Duration;
 import java.util.function.Supplier;
+
+import static io.github.bucket4j.distributed.ExpirationAfterWriteStrategy.basedOnTimeForRefillingBucketUpToMax;
+import static io.github.bucket4j.redis.lettuce.cas.LettuceBasedProxyManager.builderFor;
+import static io.lettuce.core.codec.ByteArrayCodec.INSTANCE;
+import static io.lettuce.core.codec.RedisCodec.of;
+import static io.lettuce.core.codec.StringCodec.UTF8;
+import static java.time.Duration.ofMinutes;
+import static java.time.Duration.ofSeconds;
 
 @Configuration
 public class RedisConfiguration {
@@ -35,18 +35,18 @@ public class RedisConfiguration {
         RedisClient redisClient = redisClient();
 
         StatefulRedisConnection<String, byte[]> redisConnection = redisClient
-                .connect(RedisCodec.of(StringCodec.UTF8, ByteArrayCodec.INSTANCE));
+                .connect(of(UTF8, INSTANCE));
 
-        return LettuceBasedProxyManager.builderFor(redisConnection)
+        return builderFor(redisConnection)
                 .withExpirationStrategy(
-                        ExpirationAfterWriteStrategy.basedOnTimeForRefillingBucketUpToMax(Duration.ofSeconds(30)))
+                        basedOnTimeForRefillingBucketUpToMax(ofSeconds(300)))
                 .build();
     }
 
     @Bean
     public Supplier<BucketConfiguration> bucketConfiguration() {
         return () -> BucketConfiguration.builder()
-                .addLimit(Bandwidth.simple(3, Duration.ofMinutes(20)))
+                .addLimit(Bandwidth.simple(3, ofMinutes(5)))
                 .build();
     }
 }
